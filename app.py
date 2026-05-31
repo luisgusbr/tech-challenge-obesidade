@@ -1,13 +1,11 @@
 import streamlit as st
 import pandas as pd
 import joblib
+import plotly.express as px
 
 # -------------------------------------------------------
 # CONFIGURAÇÃO GERAL DA APLICAÇÃO
 # -------------------------------------------------------
-# Nesta etapa configuramos o título, ícone e layout da aplicação.
-# O objetivo foi criar uma interface simples e objetiva para uso
-# por profissionais da saúde e avaliadores do projeto.
 
 st.set_page_config(
     page_title="Sistema Preditivo de Obesidade",
@@ -18,14 +16,6 @@ st.set_page_config(
 # -------------------------------------------------------
 # CARREGAMENTO DOS ARQUIVOS DO MODELO
 # -------------------------------------------------------
-# Nesta etapa carregamos os arquivos gerados no Google Colab:
-#
-# 1. modelo_obesidade.pkl  -> modelo Random Forest treinado
-# 2. encoder_obesidade.pkl -> tradutor da classe prevista
-# 3. features_modelo.pkl   -> lista de variáveis usadas no treinamento
-#
-# Isso garante que a aplicação utilize exatamente o mesmo modelo
-# desenvolvido e avaliado na etapa de Machine Learning.
 
 modelo = joblib.load("modelo_obesidade.pkl")
 encoder = joblib.load("encoder_obesidade.pkl")
@@ -34,20 +24,12 @@ features = joblib.load("features_modelo.pkl")
 # -------------------------------------------------------
 # FUNÇÃO DE TRATAMENTO DA BASE PARA O DASHBOARD
 # -------------------------------------------------------
-# Esta função carrega a base original Obesity.csv e aplica os mesmos
-# tratamentos utilizados na etapa de preparação dos dados.
-#
-# O objetivo é transformar a base técnica em uma base amigável para
-# análise de negócio, com campos em português e categorias mais claras
-# para a equipe médica.
 
 @st.cache_data
 def carregar_base_dashboard():
 
-    # Leitura da base original
     df_obesity = pd.read_csv("Obesity.csv")
 
-    # Renomeação das principais colunas para português
     df_obesity = df_obesity.rename(columns={
         'Gender': 'GENERO',
         'Age': 'IDADE',
@@ -57,19 +39,16 @@ def carregar_base_dashboard():
         'Obesity': 'NIVEL_OBESIDADE'
     })
 
-    # Tradução do campo gênero
     df_obesity["GENERO"] = df_obesity["GENERO"].replace({
         "Male": "Masculino",
         "Female": "Feminino"
     })
 
-    # Tradução do histórico familiar
     df_obesity["HISTORICO_FAMILIAR"] = df_obesity["HISTORICO_FAMILIAR"].replace({
         "yes": "Sim",
         "no": "Não"
     })
 
-    # Tradução da variável alvo para facilitar a leitura da equipe médica
     df_obesity["NIVEL_OBESIDADE"] = df_obesity["NIVEL_OBESIDADE"].replace({
         "Insufficient_Weight": "Abaixo do Peso",
         "Normal_Weight": "Peso Adequado",
@@ -80,12 +59,10 @@ def carregar_base_dashboard():
         "Obesity_Type_III": "Obesidade Grau III"
     })
 
-    # Tratamento dos campos numéricos para facilitar leitura no dashboard
     df_obesity["IDADE"] = df_obesity["IDADE"].astype(int)
     df_obesity["ALTURA"] = df_obesity["ALTURA"].round(2)
     df_obesity["PESO"] = df_obesity["PESO"].round(1)
 
-    # Tradução de campos binários
     df_obesity["FAVC"] = df_obesity["FAVC"].replace({
         "yes": "Sim",
         "no": "Não"
@@ -101,9 +78,6 @@ def carregar_base_dashboard():
         "no": "Não"
     })
 
-    # Tratamento da frequência de consumo de vegetais
-    # Como o dicionário informa que os valores possuem ruído decimal,
-    # arredondamos para a categoria inteira mais próxima.
     df_obesity["FCVC"] = df_obesity["FCVC"].round().astype(int)
 
     df_obesity["FCVC_DESC"] = df_obesity["FCVC"].replace({
@@ -112,7 +86,6 @@ def carregar_base_dashboard():
         3: "Sempre"
     })
 
-    # Tratamento do número de refeições principais por dia
     df_obesity["NCP"] = df_obesity["NCP"].round().astype(int)
 
     df_obesity["NCP_DESC"] = df_obesity["NCP"].replace({
@@ -122,7 +95,6 @@ def carregar_base_dashboard():
         4: "Quatro ou mais refeições"
     })
 
-    # Tratamento do consumo diário de água
     df_obesity["CH2O"] = df_obesity["CH2O"].round().astype(int)
 
     df_obesity["CH2O_DESC"] = df_obesity["CH2O"].replace({
@@ -131,7 +103,6 @@ def carregar_base_dashboard():
         3: "Mais de 2 litros"
     })
 
-    # Tratamento da frequência de atividade física
     df_obesity["FAF"] = df_obesity["FAF"].round().astype(int)
 
     df_obesity["FAF_DESC"] = df_obesity["FAF"].replace({
@@ -141,7 +112,6 @@ def carregar_base_dashboard():
         3: "5 vezes ou mais por semana"
     })
 
-    # Tratamento do tempo de uso de dispositivos eletrônicos
     df_obesity["TUE"] = df_obesity["TUE"].round().astype(int)
 
     df_obesity["TUE_DESC"] = df_obesity["TUE"].replace({
@@ -150,7 +120,6 @@ def carregar_base_dashboard():
         2: "Mais de 5 horas"
     })
 
-    # Tradução do consumo de alimentos entre refeições
     df_obesity["CAEC"] = df_obesity["CAEC"].replace({
         "no": "Não",
         "Sometimes": "Às vezes",
@@ -158,7 +127,6 @@ def carregar_base_dashboard():
         "Always": "Sempre"
     })
 
-    # Tradução do consumo de álcool
     df_obesity["CALC"] = df_obesity["CALC"].replace({
         "no": "Não",
         "Sometimes": "Às vezes",
@@ -166,7 +134,6 @@ def carregar_base_dashboard():
         "Always": "Sempre"
     })
 
-    # Tradução do meio de transporte habitual
     df_obesity["MTRANS"] = df_obesity["MTRANS"].replace({
         "Public_Transportation": "Transporte Público",
         "Walking": "Caminhada",
@@ -175,14 +142,10 @@ def carregar_base_dashboard():
         "Bike": "Bicicleta"
     })
 
-    # Remoção de registros duplicados para evitar distorções nos indicadores
     df_obesity = df_obesity.drop_duplicates()
 
-    # Criação do IMC como variável analítica
-    # Fórmula: IMC = Peso / Altura²
     df_obesity["IMC"] = df_obesity["PESO"] / (df_obesity["ALTURA"] ** 2)
 
-    # Criação de uma visão simplificada para separar pacientes com e sem obesidade
     df_obesity["GRUPO_OBESIDADE"] = df_obesity["NIVEL_OBESIDADE"].apply(
         lambda x: "Com obesidade" if "Obesidade" in x else "Sem obesidade"
     )
@@ -191,15 +154,38 @@ def carregar_base_dashboard():
 
 
 # -------------------------------------------------------
+# FUNÇÃO AUXILIAR PARA CRIAR GRÁFICOS DE BARRAS
+# -------------------------------------------------------
+# Criamos uma função para padronizar os gráficos do dashboard.
+# Assim todos os gráficos ficam com rótulos de dados e aparência uniforme.
+
+def grafico_barras(df, x, y, titulo, cor=None):
+    fig = px.bar(
+        df,
+        x=x,
+        y=y,
+        text=y,
+        title=titulo,
+        color=cor
+    )
+
+    fig.update_traces(
+        textposition="outside"
+    )
+
+    fig.update_layout(
+        xaxis_title="",
+        yaxis_title="Quantidade",
+        uniformtext_minsize=8,
+        uniformtext_mode="hide"
+    )
+
+    return fig
+
+
+# -------------------------------------------------------
 # MENU LATERAL
 # -------------------------------------------------------
-# Criamos um menu lateral para separar a aplicação em duas visões:
-#
-# 1. Sistema Preditivo: onde o usuário informa os dados do paciente
-#    e recebe a previsão do nível de obesidade.
-#
-# 2. Dashboard Analítico: onde são apresentados indicadores e gráficos
-#    para apoiar a tomada de decisão da equipe médica.
 
 st.sidebar.title("Menu")
 
@@ -211,9 +197,6 @@ pagina = st.sidebar.radio(
 # -------------------------------------------------------
 # PÁGINA 1 - SISTEMA PREDITIVO
 # -------------------------------------------------------
-# Nesta página disponibilizamos uma interface para entrada dos dados
-# do paciente. As respostas são convertidas para o mesmo padrão usado
-# no treinamento do modelo.
 
 if pagina == "Sistema Preditivo":
 
@@ -277,13 +260,7 @@ if pagina == "Sistema Preditivo":
             ["Não", "Às vezes", "Frequentemente", "Sempre"]
         )
 
-    # -------------------------------------------------------
-    # CONVERSÃO DAS ENTRADAS PARA O PADRÃO DO MODELO
-    # -------------------------------------------------------
-    # O modelo foi treinado com variáveis numéricas.
-    # Por isso, as respostas preenchidas em texto na interface
-    # são convertidas para códigos numéricos antes da predição.
-
+    # Conversão das entradas para o padrão usado no modelo
     genero_bin = 0 if genero == "Feminino" else 1
     historico_bin = 1 if historico_familiar == "Sim" else 0
     favc_bin = 1 if favc == "Sim" else 0
@@ -325,10 +302,8 @@ if pagina == "Sistema Preditivo":
         "Sempre": 3
     }
 
-    # Cálculo do IMC do paciente informado
     imc = peso / (altura ** 2)
 
-    # Montagem do registro que será enviado ao modelo
     dados = {
         "IDADE": idade,
         "ALTURA": altura,
@@ -350,9 +325,6 @@ if pagina == "Sistema Preditivo":
 
     entrada = pd.DataFrame([dados])
 
-    # Tratamento do campo MTRANS
-    # No treinamento, o meio de transporte foi convertido em variáveis binárias.
-    # Aqui recriamos essas colunas para manter o mesmo padrão do modelo.
     for col in features:
         if col.startswith("MTRANS_"):
             entrada[col] = 0
@@ -362,17 +334,10 @@ if pagina == "Sistema Preditivo":
     if col_mtrans in entrada.columns:
         entrada[col_mtrans] = 1
 
-    # Garantia da mesma ordem das variáveis utilizadas no treinamento
     entrada = entrada[features]
 
     st.subheader("Resumo do Paciente")
     st.write(f"IMC calculado: **{imc:.2f}**")
-
-    # -------------------------------------------------------
-    # EXECUÇÃO DA PREDIÇÃO
-    # -------------------------------------------------------
-    # Quando o usuário clica no botão, o modelo Random Forest realiza
-    # a previsão e o encoder traduz o resultado para a classe textual.
 
     if st.button("Realizar Predição"):
         predicao = modelo.predict(entrada)
@@ -388,12 +353,6 @@ if pagina == "Sistema Preditivo":
 # -------------------------------------------------------
 # PÁGINA 2 - DASHBOARD ANALÍTICO
 # -------------------------------------------------------
-# Nesta página apresentamos indicadores e gráficos para apoiar
-# a análise exploratória dos dados.
-#
-# A proposta é que a equipe médica consiga compreender padrões
-# importantes relacionados à obesidade, como histórico familiar,
-# atividade física, consumo de água, gênero e meio de transporte.
 
 if pagina == "Dashboard Analítico":
 
@@ -402,12 +361,7 @@ if pagina == "Dashboard Analítico":
 
     df_dash = carregar_base_dashboard()
 
-    # -------------------------------------------------------
-    # KPIs EXECUTIVOS
-    # -------------------------------------------------------
-    # Criamos indicadores principais para resumir rapidamente
-    # o perfil da população analisada.
-
+    # KPIs principais
     total_pacientes = len(df_dash)
     imc_medio = df_dash["IMC"].mean()
     peso_medio = df_dash["PESO"].mean()
@@ -428,16 +382,20 @@ if pagina == "Dashboard Analítico":
     # -------------------------------------------------------
     # GRÁFICO 1 - DISTRIBUIÇÃO DOS NÍVEIS DE OBESIDADE
     # -------------------------------------------------------
-    # Mostra a quantidade de pacientes em cada categoria.
-    # Esse gráfico ajuda a equipe médica a identificar os grupos
-    # com maior concentração de pacientes.
 
     st.subheader("Distribuição dos Níveis de Obesidade")
 
     dist_obesidade = df_dash["NIVEL_OBESIDADE"].value_counts().reset_index()
     dist_obesidade.columns = ["Nível de Obesidade", "Quantidade"]
 
-    st.bar_chart(dist_obesidade.set_index("Nível de Obesidade"))
+    fig_dist = grafico_barras(
+        dist_obesidade,
+        x="Nível de Obesidade",
+        y="Quantidade",
+        titulo="Distribuição dos Níveis de Obesidade"
+    )
+
+    st.plotly_chart(fig_dist, use_container_width=True)
 
     st.info(
         "Insight: A distribuição dos níveis de obesidade permite identificar quais grupos concentram maior volume de pacientes e devem receber maior atenção da equipe médica."
@@ -446,17 +404,30 @@ if pagina == "Dashboard Analítico":
     # -------------------------------------------------------
     # GRÁFICO 2 - HISTÓRICO FAMILIAR
     # -------------------------------------------------------
-    # Avalia a relação entre histórico familiar de excesso de peso
-    # e os níveis de obesidade observados na base.
 
     st.subheader("Histórico Familiar x Nível de Obesidade")
 
-    hist_familiar = pd.crosstab(
-        df_dash["HISTORICO_FAMILIAR"],
-        df_dash["NIVEL_OBESIDADE"]
+    hist_familiar = (
+        df_dash
+        .groupby(["HISTORICO_FAMILIAR", "NIVEL_OBESIDADE"])
+        .size()
+        .reset_index(name="Quantidade")
     )
 
-    st.bar_chart(hist_familiar)
+    fig_hist = px.bar(
+        hist_familiar,
+        x="HISTORICO_FAMILIAR",
+        y="Quantidade",
+        color="NIVEL_OBESIDADE",
+        text="Quantidade",
+        barmode="group",
+        title="Histórico Familiar x Nível de Obesidade"
+    )
+
+    fig_hist.update_traces(textposition="outside")
+    fig_hist.update_layout(xaxis_title="", yaxis_title="Quantidade")
+
+    st.plotly_chart(fig_hist, use_container_width=True)
 
     st.info(
         "Insight: Pacientes com histórico familiar de excesso de peso apresentam maior concentração nos níveis de sobrepeso e obesidade."
@@ -465,17 +436,30 @@ if pagina == "Dashboard Analítico":
     # -------------------------------------------------------
     # GRÁFICO 3 - ATIVIDADE FÍSICA
     # -------------------------------------------------------
-    # Analisa como a frequência de atividade física se distribui
-    # entre os diferentes níveis de obesidade.
 
     st.subheader("Atividade Física x Nível de Obesidade")
 
-    atividade = pd.crosstab(
-        df_dash["FAF_DESC"],
-        df_dash["NIVEL_OBESIDADE"]
+    atividade = (
+        df_dash
+        .groupby(["FAF_DESC", "NIVEL_OBESIDADE"])
+        .size()
+        .reset_index(name="Quantidade")
     )
 
-    st.bar_chart(atividade)
+    fig_atividade = px.bar(
+        atividade,
+        x="FAF_DESC",
+        y="Quantidade",
+        color="NIVEL_OBESIDADE",
+        text="Quantidade",
+        barmode="group",
+        title="Atividade Física x Nível de Obesidade"
+    )
+
+    fig_atividade.update_traces(textposition="outside")
+    fig_atividade.update_layout(xaxis_title="", yaxis_title="Quantidade")
+
+    st.plotly_chart(fig_atividade, use_container_width=True)
 
     st.info(
         "Insight: A frequência de atividade física é um fator comportamental relevante para análise preventiva da obesidade."
@@ -484,17 +468,30 @@ if pagina == "Dashboard Analítico":
     # -------------------------------------------------------
     # GRÁFICO 4 - CONSUMO DE ÁGUA
     # -------------------------------------------------------
-    # Permite observar padrões de consumo de água entre os grupos
-    # de peso corporal.
 
     st.subheader("Consumo de Água x Nível de Obesidade")
 
-    agua = pd.crosstab(
-        df_dash["CH2O_DESC"],
-        df_dash["NIVEL_OBESIDADE"]
+    agua = (
+        df_dash
+        .groupby(["CH2O_DESC", "NIVEL_OBESIDADE"])
+        .size()
+        .reset_index(name="Quantidade")
     )
 
-    st.bar_chart(agua)
+    fig_agua = px.bar(
+        agua,
+        x="CH2O_DESC",
+        y="Quantidade",
+        color="NIVEL_OBESIDADE",
+        text="Quantidade",
+        barmode="group",
+        title="Consumo de Água x Nível de Obesidade"
+    )
+
+    fig_agua.update_traces(textposition="outside")
+    fig_agua.update_layout(xaxis_title="", yaxis_title="Quantidade")
+
+    st.plotly_chart(fig_agua, use_container_width=True)
 
     st.info(
         "Insight: O consumo diário de água pode ser analisado em conjunto com outros hábitos de saúde para entender o perfil dos pacientes."
@@ -503,17 +500,30 @@ if pagina == "Dashboard Analítico":
     # -------------------------------------------------------
     # GRÁFICO 5 - GÊNERO
     # -------------------------------------------------------
-    # Compara a distribuição dos níveis de obesidade entre homens
-    # e mulheres.
 
     st.subheader("Gênero x Nível de Obesidade")
 
-    genero_obesidade = pd.crosstab(
-        df_dash["GENERO"],
-        df_dash["NIVEL_OBESIDADE"]
+    genero_obesidade = (
+        df_dash
+        .groupby(["GENERO", "NIVEL_OBESIDADE"])
+        .size()
+        .reset_index(name="Quantidade")
     )
 
-    st.bar_chart(genero_obesidade)
+    fig_genero = px.bar(
+        genero_obesidade,
+        x="GENERO",
+        y="Quantidade",
+        color="NIVEL_OBESIDADE",
+        text="Quantidade",
+        barmode="group",
+        title="Gênero x Nível de Obesidade"
+    )
+
+    fig_genero.update_traces(textposition="outside")
+    fig_genero.update_layout(xaxis_title="", yaxis_title="Quantidade")
+
+    st.plotly_chart(fig_genero, use_container_width=True)
 
     st.info(
         "Insight: A análise por gênero auxilia a equipe médica a identificar diferenças de perfil entre homens e mulheres."
@@ -522,27 +532,35 @@ if pagina == "Dashboard Analítico":
     # -------------------------------------------------------
     # GRÁFICO 6 - MEIO DE TRANSPORTE
     # -------------------------------------------------------
-    # Avalia a relação entre mobilidade cotidiana e níveis de obesidade.
-    # Essa análise pode indicar padrões relacionados ao sedentarismo.
 
     st.subheader("Meio de Transporte x Nível de Obesidade")
 
-    transporte = pd.crosstab(
-        df_dash["MTRANS"],
-        df_dash["NIVEL_OBESIDADE"]
+    transporte = (
+        df_dash
+        .groupby(["MTRANS", "NIVEL_OBESIDADE"])
+        .size()
+        .reset_index(name="Quantidade")
     )
 
-    st.bar_chart(transporte)
+    fig_transporte = px.bar(
+        transporte,
+        x="MTRANS",
+        y="Quantidade",
+        color="NIVEL_OBESIDADE",
+        text="Quantidade",
+        barmode="group",
+        title="Meio de Transporte x Nível de Obesidade"
+    )
+
+    fig_transporte.update_traces(textposition="outside")
+    fig_transporte.update_layout(xaxis_title="", yaxis_title="Quantidade")
+
+    st.plotly_chart(fig_transporte, use_container_width=True)
 
     st.info(
         "Insight: O meio de transporte pode indicar padrões de mobilidade e sedentarismo associados ao nível de obesidade."
     )
 
-    # -------------------------------------------------------
-    # BASE TRATADA
-    # -------------------------------------------------------
-    # Exibimos uma amostra da base tratada para dar transparência
-    # ao processo de preparação dos dados.
-
+    # Base tratada
     st.subheader("Base Tratada para Análise")
     st.dataframe(df_dash.head(50), use_container_width=True)
